@@ -15,7 +15,7 @@ import org.json.JSONObject
 class ChatViewModel(apiKey: String) : ViewModel() {
 
 
-    private val llmClient = GroqLLMClient(apiKey)
+    private val llmClient = LLMClient(apiKey)
 
     // Chat messages
     private val _messages = MutableStateFlow<List<ChatMessageModel>>(emptyList())

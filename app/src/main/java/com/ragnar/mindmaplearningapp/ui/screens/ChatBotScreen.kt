@@ -17,12 +17,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.History
@@ -60,69 +61,51 @@ import com.ragnar.mindmaplearningapp.speechModels.SpeechToText
 import com.ragnar.mindmaplearningapp.speechModels.TextToSpeech
 import com.ragnar.mindmaplearningapp.ui.components.ChatMessageBubbleModel
 import com.ragnar.mindmaplearningapp.ui.components.ConceptMapModel
+import com.ragnar.mindmaplearningapp.ui.theme.BackgroundPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.BackgroundSecondary
+import com.ragnar.mindmaplearningapp.ui.theme.BrandPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.ColorHint
 import com.ragnar.mindmaplearningapp.ui.theme.SendButtonColor
 import com.ragnar.mindmaplearningapp.ui.theme.TextPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.TextSecondary
 import com.ragnar.mindmaplearningapp.ui.theme.White
 
-
 @Composable
 fun ChatBotScreen(
-    sttController: SpeechToText = viewModel(), // SpeechToText core Util
+    sttController: SpeechToText = viewModel(),
 ) {
-
     val context = LocalContext.current
-
     val chatBotController: ChatViewModel = viewModel(
         factory = ChatViewModelFactory(
             apiKey = stringResource(R.string.chat_bot_api_key),
         )
     )
 
-    val sttState by sttController.state.collectAsState() // STT states
-
-    // Collects chat state from ChatViewModel
+    val sttState by sttController.state.collectAsState()
     val chatMessages by chatBotController.messages.collectAsState()
     val isChatLoading by chatBotController.isLoading.collectAsState()
-
-    // Add after existing state collectors
-    val typingText by chatBotController.typingText.collectAsState()
-    val isTyping by chatBotController.isTyping.collectAsState()
-
-
-    // ConceptMap json output from AI
     val conceptMapResult = chatBotController.conceptMapJSON.collectAsState()
-
     val conceptMapJSON = conceptMapResult.value
-
     val chatListState = rememberLazyListState()
+    val scrollState = rememberScrollState()
 
     var messageInput by remember { mutableStateOf("") }
 
-    // gets the latest AI message from chat history
-    val aiMessageOutput = when {
-        isTyping -> typingText
-        else -> chatMessages.lastOrNull { it.sender == "ai" }?.content
-            ?: "Hi! I'm ready to help you learn. What would you like to work on today?"
-    }
+    val aiMessageOutput = chatMessages.lastOrNull { it.sender == "ai" }?.content
+        ?: "Hi! I'm ready to help you learn. What would you like to work on today?"
 
-    // updates messageInput from STT when speech recognition completes
     LaunchedEffect(sttState.resultText) {
         if (sttState.resultText.isNotBlank()) {
             messageInput = sttState.resultText
         }
     }
 
-    // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(chatMessages.size) {
         if (chatMessages.isNotEmpty()) {
             chatListState.animateScrollToItem(chatMessages.size - 1)
         }
     }
 
-    // Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { isGranted ->
@@ -133,7 +116,6 @@ fun ChatBotScreen(
         )
     }
 
-    // Launch Activity
     LaunchedEffect(Unit) {
         sttController.initialize(context)
         if (!sttState.hasPermission) {
@@ -141,7 +123,6 @@ fun ChatBotScreen(
         }
     }
 
-    // Disposal Activity
     DisposableEffect(Unit) {
         onDispose {
             sttController.destroy()
@@ -153,28 +134,37 @@ fun ChatBotScreen(
             .fillMaxSize()
             .background(White)
     ) {
-        Column {
-            /*
-            Card to display current result from AI
-             */
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(White)
+                .verticalScroll(scrollState) // Make the main Column scrollable
+        ) {
+            // AI Output Card
             Card(
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp) ,
+                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
                 modifier = Modifier
-                    .fillMaxSize()
-                    .wrapContentHeight()
-                    .padding(0.dp, 15.dp)
-
+                    .fillMaxWidth()
+                    .padding(10.dp, 15.dp)
             ) {
-                Column {
-
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(BackgroundPrimary)
+                        .padding(0.dp, 10.dp)
+                ) {
                     Text(
                         text = aiMessageOutput,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = TextPrimary,
-                        style = MaterialTheme.typography.bodyMedium
+                        modifier = Modifier.padding(
+                            top = 0.dp,
+                            bottom = 10.dp,
+                            start = 10.dp,
+                            end = 10.dp
+                        )
                     )
-                    /**
-                     * A text field send icon and mic button in a row
-                     */
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -182,7 +172,6 @@ fun ChatBotScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // standard TextField
                         TextField(
                             value = messageInput,
                             onValueChange = { messageInput = it },
@@ -202,13 +191,11 @@ fun ChatBotScreen(
                                 focusedPlaceholderColor = TextSecondary
                             )
                         )
-                        // Button to send message to chat
+
                         IconButton(
                             onClick = {
                                 if (messageInput.isNotBlank() && !isChatLoading) {
-                                    // Send message to chatbot
                                     chatBotController.sendMessage(messageInput)
-                                    // Clear input
                                     messageInput = ""
                                 }
                             },
@@ -227,14 +214,13 @@ fun ChatBotScreen(
                             )
                         }
 
-                        // mic button
                         IconButton(
                             onClick = {
                                 Log.i("ChatScreen", "Mic Button Clicked")
                                 if (!sttState.isSpeaking) {
                                     if (sttState.isInitialized && sttState.hasPermission) {
                                         sttController.startListening()
-                                    } else if (!sttState.hasPermission){
+                                    } else if (!sttState.hasPermission) {
                                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     }
                                 } else {
@@ -252,6 +238,7 @@ fun ChatBotScreen(
                             )
                         }
                     }
+
                     Text(
                         text = if (isChatLoading) "Sending..." else "Tap to send",
                         style = MaterialTheme.typography.labelMedium,
@@ -261,32 +248,33 @@ fun ChatBotScreen(
                 }
             }
 
-            /**
-             * Card to display concept map
-             * this is a dynamic compose model
-             */
+            // Concept Map Card
             Card(
                 modifier = Modifier
+                    .fillMaxWidth()
                     .height(500.dp)
+                    .padding(horizontal = 10.dp)
                     .background(BackgroundSecondary),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
             ) {
                 ConceptMapModel(conceptMapJSON)
             }
+
             Spacer(modifier = Modifier.padding(10.dp))
-            /*
-            Card to display previous messages
-             */
+
+            // Previous Conversation Card
             Card(
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                modifier = Modifier.align(Alignment.Start)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp)
+                    .padding(bottom = 15.dp)
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(White)
                 ) {
-                    // Header row
                     Row(
                         modifier = Modifier
                             .background(BackgroundSecondary)
@@ -305,11 +293,10 @@ fun ChatBotScreen(
                         )
                     }
 
-                    // ChatMessage with auto-scroll
                     LazyColumn(
                         state = chatListState,
                         modifier = Modifier
-                            .height(300.dp) // fixed height
+                            .height(300.dp)
                             .fillMaxWidth(),
                         contentPadding = PaddingValues(12.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
