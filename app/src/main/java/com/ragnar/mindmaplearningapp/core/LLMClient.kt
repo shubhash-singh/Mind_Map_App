@@ -98,6 +98,7 @@ class LLMClient(
     - Connected to Tertiary nodes
     
     Total nodes: Minimum 25, ideally 30-35 for comprehensive coverage
+    Don't exceed 30 Nodes
     
     Edge Labels:
     Use meaningful relationship descriptors like:
@@ -132,10 +133,10 @@ class LLMClient(
             }
 
             val jsonBody = JSONObject().apply {
-                put("model", "meta-llama/llama-4-scout-17b-16e-instruct")
+                put("model", "openai/gpt-oss-120b")
                 put("messages", messages)
                 put("temperature", 0.7)
-                put("max_tokens", 2048)
+                put("max_tokens", 8192)
             }
 
             Log.d("AIChatUtils", "Sending request to: $url")
@@ -152,7 +153,7 @@ class LLMClient(
 
             val response = client.newCall(request).execute()
 
-            Log.d("AIChatUtils", "Response code: ${response.code}")
+            Log.d("AIChatUtils", "Response code: ${response}")
 
             if (!response.isSuccessful) {
                 val errorBody = response.body?.string() ?: "Unknown error"
@@ -174,93 +175,220 @@ class LLMClient(
         }
     }
 
-    suspend fun extractConceptMapJSON(fullResponse: String): String = withContext(Dispatchers.Default) {
-        try {
-            val jsonResponse = JSONObject(fullResponse)
-            val choices = jsonResponse.getJSONArray("choices")
+    suspend fun extractConceptMapJSON(fullResponse: String): String =
+        withContext(Dispatchers.Default) {
+            try {
+                // Parse Groq/OpenAI-compatible response
+                val jsonResponse = JSONObject(fullResponse)
+                val choices = jsonResponse.optJSONArray("choices")
 
-            if (choices.length() > 0) {
-                val message = choices.getJSONObject(0).getJSONObject("message")
-                val content = message.getString("content")
+                if (choices == null || choices.length() == 0) {
+                    Log.e("AIChatUtils", "No choices found in API response")
+                    return@withContext getDefaultConceptMapJSON()
+                }
 
-                Log.d("AIChatUtils", "Extracting concept map from content of length: ${content.length}")
+                val message = choices
+                    .optJSONObject(0)
+                    ?.optJSONObject("message")
 
-                // OPTIMIZED: Use regex to find JSON blocks instead of character-by-character iteration
-                val jsonPattern = Regex("""\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}""", RegexOption.DOT_MATCHES_ALL)
-                val matches = jsonPattern.findAll(content)
+                if (message == null) {
+                    Log.e("AIChatUtils", "No message found in first choice")
+                    return@withContext getDefaultConceptMapJSON()
+                }
 
-                for (match in matches) {
-                    val candidateJson = match.value
+                val content = message.optString("content", "")
 
-                    try {
-                        val testObj = JSONObject(candidateJson)
+                if (content.isBlank()) {
+                    Log.e("AIChatUtils", "AI response content is empty")
+                    return@withContext getDefaultConceptMapJSON()
+                }
 
-                        // Check if it's a concept map JSON
-                        if (testObj.has("visualization_type") &&
-                            testObj.has("main_concept") &&
-                            testObj.has("nodes") &&
-                            testObj.has("edges")) {
+                Log.d(
+                    "AIChatUtils",
+                    "Extracting concept map from content of length: ${content.length}"
+                )
 
-                            Log.d("AIChatUtils", "Successfully extracted concept map JSON")
-                            return@withContext candidateJson
-                        }
-                    } catch (e: Exception) {
-                        // Not valid JSON, continue to next match
+                // ---------------------------------------------------------
+                // STEP 1: Locate the concept map section
+                // ---------------------------------------------------------
+
+                val marker = "[CONCEPT_MAP_JSON]"
+                val markerIndex = content.indexOf(marker)
+
+                val searchStart = if (markerIndex != -1) {
+                    markerIndex + marker.length
+                } else {
+                    0
+                }
+
+                val remainingContent = content.substring(searchStart)
+
+                // ---------------------------------------------------------
+                // STEP 2: Find the first JSON object
+                // ---------------------------------------------------------
+
+                val firstBrace = remainingContent.indexOf('{')
+
+                if (firstBrace == -1) {
+                    Log.e("AIChatUtils", "No JSON object found in AI response")
+                    Log.e("AIChatUtils", "Content: $content")
+                    return@withContext getDefaultConceptMapJSON()
+                }
+
+                // ---------------------------------------------------------
+                // STEP 3: Find the matching closing brace
+                //
+                // Unlike the old regex approach, this correctly handles:
+                //
+                // {
+                //     "label": "HashMap { key -> value }"
+                // }
+                //
+                // Braces inside JSON strings are ignored.
+                // ---------------------------------------------------------
+
+                var depth = 0
+                var inString = false
+                var escaped = false
+                var endIndex = -1
+
+                for (i in firstBrace until remainingContent.length) {
+
+                    val char = remainingContent[i]
+
+                    if (escaped) {
+                        escaped = false
                         continue
                     }
-                }
 
-                // Fallback: Try to find JSON between markers
-                val jsonStartMarker = "[CONCEPT_MAP_JSON]"
-                val markerIndex = content.indexOf(jsonStartMarker)
+                    if (char == '\\' && inString) {
+                        escaped = true
+                        continue
+                    }
 
-                if (markerIndex != -1) {
-                    val afterMarker = content.substring(markerIndex + jsonStartMarker.length).trim()
-                    val firstBrace = afterMarker.indexOf('{')
+                    if (char == '"') {
+                        inString = !inString
+                        continue
+                    }
 
-                    if (firstBrace != -1) {
-                        // Find matching closing brace using stack-based approach
-                        var braceCount = 0
-                        var endIndex = firstBrace
-
-                        for (i in firstBrace until afterMarker.length) {
-                            when (afterMarker[i]) {
-                                '{' -> braceCount++
-                                '}' -> {
-                                    braceCount--
-                                    if (braceCount == 0) {
-                                        endIndex = i + 1
-                                        break
-                                    }
-                                }
+                    if (!inString) {
+                        when (char) {
+                            '{' -> {
+                                depth++
                             }
-                        }
 
-                        if (endIndex > firstBrace) {
-                            val extractedJson = afterMarker.substring(firstBrace, endIndex)
+                            '}' -> {
+                                depth--
 
-                            try {
-                                // Validate it's proper JSON
-                                val testObj = JSONObject(extractedJson)
-                                if (testObj.has("nodes") && testObj.has("edges")) {
-                                    return@withContext extractedJson
+                                if (depth == 0) {
+                                    endIndex = i + 1
+                                    break
                                 }
-                            } catch (e: Exception) {
-                                Log.e("AIChatUtils", "Invalid JSON after marker: ${e.message}")
                             }
                         }
                     }
                 }
+
+                if (endIndex == -1) {
+                    Log.e(
+                        "AIChatUtils",
+                        "Could not find matching closing brace for concept map JSON"
+                    )
+                    Log.e("AIChatUtils", "Content: $content")
+                    return@withContext getDefaultConceptMapJSON()
+                }
+
+                // ---------------------------------------------------------
+                // STEP 4: Extract JSON
+                // ---------------------------------------------------------
+
+                val extractedJson = remainingContent
+                    .substring(firstBrace, endIndex)
+                    .trim()
+
+                Log.d(
+                    "AIChatUtils",
+                    "Extracted JSON length: ${extractedJson.length}"
+                )
+
+                // ---------------------------------------------------------
+                // STEP 5: Validate JSON
+                // ---------------------------------------------------------
+
+                try {
+                    val conceptMap = JSONObject(extractedJson)
+
+                    val hasVisualizationType =
+                        conceptMap.has("visualization_type")
+
+                    val hasMainConcept =
+                        conceptMap.has("main_concept")
+
+                    val hasNodes =
+                        conceptMap.has("nodes")
+
+                    val hasEdges =
+                        conceptMap.has("edges")
+
+                    if (hasVisualizationType &&
+                        hasMainConcept &&
+                        hasNodes &&
+                        hasEdges
+                    ) {
+
+                        Log.d(
+                            "AIChatUtils",
+                            "Successfully extracted concept map JSON"
+                        )
+
+                        return@withContext extractedJson
+                    }
+
+                    Log.e(
+                        "AIChatUtils",
+                        "JSON found, but it is not a valid concept map"
+                    )
+
+                    Log.e(
+                        "AIChatUtils",
+                        "Keys: ${conceptMap.keys().asSequence().toList()}"
+                    )
+
+                } catch (e: Exception) {
+                    Log.e(
+                        "AIChatUtils",
+                        "Extracted content is not valid JSON: ${e.message}"
+                    )
+
+                    Log.e(
+                        "AIChatUtils",
+                        "Extracted JSON: $extractedJson"
+                    )
+                }
+
+                // ---------------------------------------------------------
+                // STEP 6: Fallback
+                // ---------------------------------------------------------
+
+                Log.e(
+                    "AIChatUtils",
+                    "Could not extract valid concept map JSON from response"
+                )
+
+                return@withContext getDefaultConceptMapJSON()
+
+            } catch (e: Exception) {
+
+                Log.e(
+                    "AIChatUtils",
+                    "Error extracting concept map JSON: ${e.message}",
+                    e
+                )
+
+                return@withContext getDefaultConceptMapJSON()
             }
-
-            Log.e("AIChatUtils", "Could not extract concept map JSON from response")
-            return@withContext getDefaultConceptMapJSON()
-
-        } catch (e: Exception) {
-            Log.e("AIChatUtils", "Error extracting concept map JSON: ${e.message}", e)
-            return@withContext getDefaultConceptMapJSON()
         }
-    }
+
 
     /**
      * Extracts the answer text from the AI response

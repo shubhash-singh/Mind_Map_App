@@ -12,11 +12,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -63,8 +66,10 @@ import com.ragnar.mindmaplearningapp.ui.components.ChatMessageBubbleModel
 import com.ragnar.mindmaplearningapp.ui.components.ConceptMapModel
 import com.ragnar.mindmaplearningapp.ui.theme.BackgroundPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.BackgroundSecondary
+import com.ragnar.mindmaplearningapp.ui.theme.Black
 import com.ragnar.mindmaplearningapp.ui.theme.BrandPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.ColorHint
+import com.ragnar.mindmaplearningapp.ui.theme.LightGray
 import com.ragnar.mindmaplearningapp.ui.theme.SendButtonColor
 import com.ragnar.mindmaplearningapp.ui.theme.TextPrimary
 import com.ragnar.mindmaplearningapp.ui.theme.TextSecondary
@@ -132,12 +137,13 @@ fun ChatBotScreen(
     Surface(
         modifier = Modifier
             .fillMaxSize()
-            .background(White)
+            .background(Black)
+            .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(White)
+                .background(LightGray)
                 .verticalScroll(scrollState) // Make the main Column scrollable
         ) {
             // AI Output Card
@@ -252,7 +258,7 @@ fun ChatBotScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(500.dp)
+                    .height(700.dp)
                     .padding(horizontal = 10.dp)
                     .background(BackgroundSecondary),
                 elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
@@ -261,68 +267,6 @@ fun ChatBotScreen(
             }
 
             Spacer(modifier = Modifier.padding(10.dp))
-
-            // Previous Conversation Card
-            Card(
-                elevation = CardDefaults.cardElevation(defaultElevation = 12.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp)
-                    .padding(bottom = 15.dp)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(White)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .background(BackgroundSecondary)
-                            .fillMaxWidth()
-                            .padding(5.dp, 10.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.History,
-                            contentDescription = "Previous Conversation Icon",
-                            tint = TextPrimary
-                        )
-                        Spacer(modifier = Modifier.padding(4.dp))
-                        Text(
-                            text = "Previous Conversation: ",
-                            color = TextPrimary
-                        )
-                    }
-
-                    LazyColumn(
-                        state = chatListState,
-                        modifier = Modifier
-                            .height(300.dp)
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (chatMessages.isEmpty()) {
-                            item {
-                                Text(
-                                    text = "No conversation yet...",
-                                    color = TextSecondary,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
-                        } else {
-                            items(chatMessages) { message ->
-                                ChatMessageBubbleModel(
-                                    message = message,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                            }
-                            item {
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

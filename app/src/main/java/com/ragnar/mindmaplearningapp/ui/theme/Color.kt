@@ -3,41 +3,41 @@ package com.ragnar.mindmaplearningapp.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // Base Colors
-val Black = Color(0xFF0E0E10)
+val Black = Color(0xFF000000)
 val White = Color(0xFFFFFFFF)
-val LightGray = Color(0xFFE0E0E0)
+val LightGray = Color(0xFF2A2A2A)
 
 // Brand & Accent Colors
-val BrandPrimary = Color(0xFF6366F1) // Indigo – app identity (send button, active elements)
-val AccentGreen = Color(0xFF22C55E)  // Emerald – user chat bubble
-val AccentBlue = Color(0xFF3B82F6)   // Bright blue – highlights, links, or icons
+val BrandPrimary = Color(0xFF1A1A1A)
+val AccentGreen = Color(0xFF242424)
+val AccentBlue = Color(0xFF2E2E2E)
 
 // Background Colors
-val BackgroundPrimary = Color(0xFFF8F9FF)  // Main background (soft off-white)
-val BackgroundSecondary = Color(0xFFE2E8F0) // Card and input background
-val AiMessageBackground = Color(0xFFD7D9FF) // AI chat bubble (light indigo hint)
-val ChipBackground = Color(0xFFE7EAFC)      // Status chip background (soft indigo tint)
+val BackgroundPrimary = Color(0xFF000000)
+val BackgroundSecondary = Color(0xFF121212)
+val AiMessageBackground = Color(0xFF1C1C1C)
+val ChipBackground = Color(0xFF222222)
 
 // Text Colors
-val TextPrimary = Color(0xFF111827)      // Main headings
-val TextSecondary = Color(0xFF6B7280)    // Subtext, timestamps
-val TextOnPrimary = Color(0xFFFFFFFF)    // Text on colored backgrounds
-val TextOnAccent = Color(0xFFFFFFFF)     // Text on green/blue accents
+val TextPrimary = Color(0xFFFFFFFF)
+val TextSecondary = Color(0xFFAAAAAA)
+val TextOnPrimary = Color(0xFFFFFFFF)
+val TextOnAccent = Color(0xFFFFFFFF)
 
 // Icon Colors
-val IconPrimary = Color(0xFF6366F1)      // Active icons
-val IconSecondary = Color(0xFF9CA3AF)    // Inactive icons
+val IconPrimary = Color(0xFFFFFFFF)
+val IconSecondary = Color(0xFF777777)
 
 // UI Component-Specific Colors
-val WaveformActive = Color(0xFF6366F1)
-val WaveformInactive = Color(0xFFD1D5DB)
+val WaveformActive = Color(0xFFFFFFFF)
+val WaveformInactive = Color(0xFF444444)
 
 // UI States
-val ColorHint = Color(0xFF9CA3AF)
-val ColorError = Color(0xFFEF4444)
-val ColorSuccess = Color(0xFF22C55E)
-val ColorWarning = Color(0xFFF59E0B)
+val ColorHint = Color(0xFF777777)
+val ColorError = Color(0xFF555555)
+val ColorSuccess = Color(0xFF333333)
+val ColorWarning = Color(0xFF444444)
 
 // Extra
-val SendButtonColor = Color(0xFF3B82F6)
-val textFieldBackgroundColor = Color(0xFFF1F5F9)
+val SendButtonColor = Color(0xFF1E1E1E)
+val textFieldBackgroundColor = Color(0xFF181818)

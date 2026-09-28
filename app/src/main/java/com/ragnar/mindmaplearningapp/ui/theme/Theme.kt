@@ -19,21 +19,24 @@ fun AppTheme(
     darkTheme: Boolean = true,
     content: @Composable () -> Unit
 ) {
-    val colorScheme = if (darkTheme) DarkColors else LightColors
+    val colorScheme = DarkColors
     val view = LocalView.current
 
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // Set the status bar color to black
+
             window.statusBarColor = Black.toArgb()
-            // Set status bar icons (time, battery) to be light
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
+
+            WindowCompat.getInsetsController(
+                window,
+                view
+            ).isAppearanceLightStatusBars = false
         }
     }
 
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = colorScheme,
         typography = Typography(),
         content = content
     )
